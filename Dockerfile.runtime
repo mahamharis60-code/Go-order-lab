@@ -1,0 +1,8 @@
+FROM alpine:3.20
+WORKDIR /app
+RUN apk add --no-cache ca-certificates tzdata wget
+ENV TZ=Asia/Shanghai
+COPY dist/go-order-lab-linux-amd64 /app/go-order-lab
+EXPOSE 8090
+HEALTHCHECK --interval=10s --timeout=3s --retries=5 CMD wget -qO- http://127.0.0.1:8090/health || exit 1
+CMD ["/app/go-order-lab"]

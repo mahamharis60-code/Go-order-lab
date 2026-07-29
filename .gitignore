@@ -1,0 +1,33 @@
+# Local environment files
+.env
+.env.local
+.env.*
+!.env.example
+!.env.vm.example
+
+# Build outputs
+*.exe
+dist/
+*.test.exe
+coverage.out
+
+# Local runtime data
+data/
+data/*.db
+data/*.db-*
+reports/
+.cache/
+
+# Logs and temporary files
+*.log
+*.tmp
+*.tar.gz
+
+# OS/editor files
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+
+# Agent planning notes kept out of public repo
+docs/superpowers/

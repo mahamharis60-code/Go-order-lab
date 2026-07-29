@@ -1,0 +1,102 @@
+name: go-order-lab-full
+
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile.scratch
+    container_name: go-order-lab-app-full-runtime
+    restart: unless-stopped
+    environment:
+      ORDER_HTTP_ADDR: ":8090"
+      ORDER_DB_DRIVER: mysql
+      ORDER_DB_SOURCE: "order_user:order_pass@tcp(mysql:3306)/order_lab?charset=utf8mb4&parseTime=True&loc=Local"
+      ORDER_DB_MAX_OPEN_CONNS: "30"
+      ORDER_DB_MAX_IDLE_CONNS: "15"
+      ORDER_DB_CONN_MAX_LIFETIME_SECONDS: "300"
+      ORDER_REQUEST_TIMEOUT_SECONDS: "5"
+      ORDER_SHUTDOWN_TIMEOUT_SECONDS: "10"
+      ORDER_JWT_SECRET: "compose-order-lab-secret"
+      ORDER_ADMIN_USERNAME: "${ORDER_ADMIN_USERNAME:-admin}"
+      ORDER_ADMIN_PASSWORD: "${ORDER_ADMIN_PASSWORD:-admin123456}"
+      ORDER_WORKER_COUNT: 3
+      ORDER_REDIS_ENABLED: "true"
+      ORDER_REDIS_ADDR: "redis:6379"
+      ORDER_RABBITMQ_ENABLED: "true"
+      ORDER_RABBITMQ_URL: "amqp://order_user:order_pass@rabbitmq:5672/"
+      ORDER_RABBITMQ_QUEUE: "order.created"
+      ORDER_RABBITMQ_MAX_RETRIES: "3"
+      ORDER_COMPENSATION_ENABLED: "false"
+      ORDER_COMPENSATION_INTERVAL_SECONDS: "60"
+      ORDER_COMPENSATION_QUEUED_TIMEOUT_SECONDS: "30"
+      ORDER_COMPENSATION_PAY_TIMEOUT_SECONDS: "900"
+      ORDER_RATE_LIMIT_ENABLED: "false"
+      ORDER_RATE_LIMIT_RPS: "20"
+      ORDER_RATE_LIMIT_BURST: "40"
+    ports:
+      - "${ORDER_APP_PORT:-28090}:8090"
+    depends_on:
+      mysql:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+
+  mysql:
+    image: mysql:8.4
+    container_name: go-order-lab-mysql-full
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: rootpass
+      MYSQL_DATABASE: order_lab
+      MYSQL_USER: order_user
+      MYSQL_PASSWORD: order_pass
+      TZ: Asia/Shanghai
+    ports:
+      - "${ORDER_MYSQL_PORT:-23306}:3306"
+    volumes:
+      - mysql-full-data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "127.0.0.1", "-uroot", "-prootpass"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  redis:
+    image: redis:7.4
+    container_name: go-order-lab-redis-full
+    restart: unless-stopped
+    command: ["redis-server", "--appendonly", "yes"]
+    ports:
+      - "${ORDER_REDIS_PORT:-26379}:6379"
+    volumes:
+      - redis-full-data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  rabbitmq:
+    image: rabbitmq:3.13-management
+    container_name: go-order-lab-rabbitmq-full
+    restart: unless-stopped
+    environment:
+      RABBITMQ_DEFAULT_USER: order_user
+      RABBITMQ_DEFAULT_PASS: order_pass
+    ports:
+      - "${ORDER_RABBITMQ_PORT:-25672}:5672"
+      - "${ORDER_RABBITMQ_MANAGEMENT_PORT:-25673}:15672"
+    volumes:
+      - rabbitmq-full-data:/var/lib/rabbitmq
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 20
+
+volumes:
+  mysql-full-data:
+  redis-full-data:
+  rabbitmq-full-data:
