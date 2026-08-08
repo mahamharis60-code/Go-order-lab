@@ -162,7 +162,10 @@ Go 编译与测试：
 scripts\test.cmd
 ```
 
-GitHub Actions 会在 push 和 pull request 时自动执行格式检查和 `go test ./... -count=1 -timeout=2m`。
+GitHub Actions 配置了两层验证：
+
+- 基础回归：push 和 pull request 时执行 `gofmt` 检查和 `go test ./... -count=1 -timeout=2m`。
+- 真实中间件 smoke：在 GitHub runner 中启动 MySQL、Redis、RabbitMQ，启动 Go 服务后执行 `scripts/smoke-test.js`，覆盖注册登录、商品活动、下单、支付回调、RBAC、购物车、优惠券、补偿等接口链路。
 
 完整接口 smoke test：
 
@@ -215,7 +218,7 @@ scripts\pressure.cmd
 - MySQL/Redis/RabbitMQ 中间件模式。
 - Dockerized Go app 在 Ubuntu VM 中运行。
 - Docker Compose v2 mixed 模式在 Ubuntu VM 中运行，服务监听 `18090` 并通过完整 smoke test。
-- GitHub Actions CI 已配置格式检查和全量 Go 测试。
+- GitHub Actions CI 已配置格式检查、全量 Go 测试和真实 MySQL/Redis/RabbitMQ smoke job。
 - 用户侧 HTTP 集成测试覆盖注册、活动下单、重复下单、异步订单状态推进、支付回调和重复回调幂等。
 - smoke test 和 pressure test 脚本。
 - RabbitMQ 消息 retry envelope、最大重试和死信队列投递逻辑。
@@ -233,7 +236,7 @@ scripts\pressure.cmd
 - RabbitMQ 还没有延迟重试和可视化监控面板。
 - 当前限流器是单进程内存实现，尚不是 Redis 或网关级分布式限流。
 - 库存对账当前是手动接口，尚未做自动定时调度和告警。
-- 测试以脚本验证、service 单元测试、RBAC/后台 HTTP 集成测试和用户侧订单 HTTP 流程测试为主，购物车/优惠券等接口集成测试还可以继续补。
+- 测试以脚本验证、service 单元测试、RBAC/后台 HTTP 集成测试、用户侧订单 HTTP 流程测试和 CI 真实中间件 smoke 为主，购物车/优惠券等 Go 侧集成测试还可以继续补。
 - 已暴露 Prometheus 文本指标，但尚未接入 Prometheus Server 和 Grafana 面板。
 
 ## 文档
