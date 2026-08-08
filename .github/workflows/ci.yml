@@ -1,0 +1,144 @@
+name: CI
+
+on:
+  push:
+    branches: ["main", "master"]
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - name: Format check
+        run: test -z "$(gofmt -l .)"
+
+      - name: Test
+        run: go test ./... -count=1 -timeout=2m
+
+  integration-smoke:
+    runs-on: ubuntu-latest
+    services:
+      mysql:
+        image: mysql:8.4
+        env:
+          MYSQL_ROOT_PASSWORD: rootpass
+          MYSQL_DATABASE: order_lab
+          MYSQL_USER: order_user
+          MYSQL_PASSWORD: order_pass
+          TZ: Asia/Shanghai
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="mysqladmin ping -h 127.0.0.1 -uroot -prootpass"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=20
+      redis:
+        image: redis:7.4
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd="redis-cli ping"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=20
+      rabbitmq:
+        image: rabbitmq:3.13-management
+        env:
+          RABBITMQ_DEFAULT_USER: order_user
+          RABBITMQ_DEFAULT_PASS: order_pass
+        ports:
+          - 5672:5672
+          - 15672:15672
+        options: >-
+          --health-cmd="rabbitmq-diagnostics -q ping"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=20
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Build app
+        run: go build -o go-order-lab ./cmd/server
+
+      - name: Start app with real middleware
+        env:
+          ORDER_HTTP_ADDR: ":8090"
+          ORDER_DB_DRIVER: mysql
+          ORDER_DB_SOURCE: "order_user:order_pass@tcp(127.0.0.1:3306)/order_lab?charset=utf8mb4&parseTime=True&loc=Local"
+          ORDER_DB_MAX_OPEN_CONNS: "20"
+          ORDER_DB_MAX_IDLE_CONNS: "10"
+          ORDER_DB_CONN_MAX_LIFETIME_SECONDS: "300"
+          ORDER_REQUEST_TIMEOUT_SECONDS: "5"
+          ORDER_SHUTDOWN_TIMEOUT_SECONDS: "10"
+          ORDER_JWT_SECRET: "ci-order-lab-secret"
+          ORDER_ADMIN_USERNAME: admin
+          ORDER_ADMIN_PASSWORD: admin123456
+          ORDER_WORKER_COUNT: "3"
+          ORDER_REDIS_ENABLED: "true"
+          ORDER_REDIS_ADDR: "127.0.0.1:6379"
+          ORDER_RABBITMQ_ENABLED: "true"
+          ORDER_RABBITMQ_URL: "amqp://order_user:order_pass@127.0.0.1:5672/"
+          ORDER_RABBITMQ_QUEUE: order.created
+          ORDER_RABBITMQ_MAX_RETRIES: "3"
+          ORDER_COMPENSATION_ENABLED: "false"
+          ORDER_RATE_LIMIT_ENABLED: "false"
+        run: |
+          ./go-order-lab > "$RUNNER_TEMP/go-order-lab.log" 2>&1 &
+          echo $! > "$RUNNER_TEMP/go-order-lab.pid"
+
+      - name: Wait for health
+        run: |
+          for i in {1..30}; do
+            if curl -fsS http://127.0.0.1:8090/health; then
+              exit 0
+            fi
+            sleep 2
+          done
+          cat "$RUNNER_TEMP/go-order-lab.log"
+          exit 1
+
+      - name: Run real middleware smoke test
+        env:
+          ORDER_BASE_URL: http://127.0.0.1:8090
+          ORDER_SMOKE_OUT: ${{ runner.temp }}/order-smoke
+          ORDER_ADMIN_USERNAME: admin
+          ORDER_ADMIN_PASSWORD: admin123456
+        run: node scripts/smoke-test.js
+
+      - name: Stop app
+        if: always()
+        run: |
+          if [ -f "$RUNNER_TEMP/go-order-lab.pid" ]; then
+            kill "$(cat "$RUNNER_TEMP/go-order-lab.pid")" || true
+          fi
+
+      - name: Upload smoke artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: integration-smoke-artifacts
+          path: |
+            ${{ runner.temp }}/go-order-lab.log
+            ${{ runner.temp }}/order-smoke
