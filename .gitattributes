@@ -8,6 +8,7 @@
 *.yaml text eol=lf
 *.js text eol=lf
 *.sql text eol=lf
+*.sh text eol=lf
 .gitattributes text eol=lf
 Dockerfile* text eol=lf
 

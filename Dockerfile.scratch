@@ -1,5 +1,5 @@
 FROM scratch
 WORKDIR /app
-COPY dist/go-order-lab-linux-amd64 /app/go-order-lab
+COPY --chmod=755 dist/go-order-lab-linux-amd64 /app/go-order-lab
 EXPOSE 8090
 ENTRYPOINT ["/app/go-order-lab"]
