@@ -154,6 +154,18 @@ sudo -E docker compose -f docker-compose.full-runtime.yml up -d --build
 curl http://127.0.0.1:28090/health
 ```
 
+### 云服务器 Compose 部署
+
+云服务器推荐先使用 `docker-compose.cloud.yml`；如果拉取 Go builder 镜像不稳定，可以本地交叉编译 Linux 二进制后使用 `docker-compose.cloud-runtime.yml`。两种方式都会拉起 Go app、MySQL、Redis 和 RabbitMQ，其中 MySQL/Redis/RabbitMQ 只在 Docker 网络内访问，公网只暴露 `8090` API 端口。
+
+```bash
+cp .env.cloud.example .env
+COMPOSE_FILE=docker-compose.cloud-runtime.yml bash scripts/deploy-cloud.sh
+curl http://127.0.0.1:8090/health
+```
+
+公网演示前需要在云厂商安全组放行 TCP `8090`。完整步骤见 `docs/CLOUD_DEPLOY.md`，Apifox 演示流程见 `docs/APIFOX.md`。
+
 ## 验证命令
 
 Go 编译与测试：

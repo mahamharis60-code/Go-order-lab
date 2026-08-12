@@ -36,11 +36,22 @@ RABBITMQ_DEFAULT_PASS
 ORDER_RABBITMQ_URL
 ```
 
-Start the stack:
+Start the stack with source build:
 
 ```bash
 bash scripts/deploy-cloud.sh
 ```
+
+If the server has trouble pulling the Go builder image, use the runtime route.
+Build the Linux binary locally or in CI, upload `dist/go-order-lab-linux-amd64`
+to the server, then start the stack with:
+
+```bash
+COMPOSE_FILE=docker-compose.cloud-runtime.yml bash scripts/deploy-cloud.sh
+```
+
+This still runs the app, MySQL, Redis, and RabbitMQ in Docker Compose. Only the
+app API port is exposed.
 
 Verify:
 
@@ -63,5 +74,8 @@ docker compose -f docker-compose.cloud.yml logs -f app
 docker compose -f docker-compose.cloud.yml restart app
 docker compose -f docker-compose.cloud.yml down
 ```
+
+For the runtime route, replace `docker-compose.cloud.yml` with
+`docker-compose.cloud-runtime.yml`.
 
 Do not expose MySQL, Redis, or RabbitMQ ports to the public internet.
