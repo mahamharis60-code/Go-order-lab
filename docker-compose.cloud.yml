@@ -1,0 +1,80 @@
+name: go-order-lab-cloud
+
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: go-order-lab-app-cloud
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      ORDER_HTTP_ADDR: ":8090"
+      ORDER_DB_DRIVER: mysql
+      ORDER_DB_SOURCE: "${ORDER_DB_SOURCE:-order_user:order_pass@tcp(mysql:3306)/order_lab?charset=utf8mb4&parseTime=True&loc=Local}"
+      ORDER_REDIS_ENABLED: "true"
+      ORDER_REDIS_ADDR: "redis:6379"
+      ORDER_RABBITMQ_ENABLED: "true"
+      ORDER_RABBITMQ_URL: "${ORDER_RABBITMQ_URL:-amqp://order_user:order_pass@rabbitmq:5672/}"
+      ORDER_RABBITMQ_QUEUE: "${ORDER_RABBITMQ_QUEUE:-order.created}"
+    ports:
+      - "${ORDER_APP_PORT:-8090}:8090"
+    depends_on:
+      mysql:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+
+  mysql:
+    image: mysql:8.4
+    container_name: go-order-lab-mysql-cloud
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: "${MYSQL_ROOT_PASSWORD:-rootpass}"
+      MYSQL_DATABASE: "${MYSQL_DATABASE:-order_lab}"
+      MYSQL_USER: "${MYSQL_USER:-order_user}"
+      MYSQL_PASSWORD: "${MYSQL_PASSWORD:-order_pass}"
+      TZ: Asia/Shanghai
+    volumes:
+      - mysql-cloud-data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "127.0.0.1", "-uroot", "-p${MYSQL_ROOT_PASSWORD:-rootpass}"]
+      interval: 5s
+      timeout: 3s
+      retries: 30
+
+  redis:
+    image: redis:7.4
+    container_name: go-order-lab-redis-cloud
+    restart: unless-stopped
+    command: ["redis-server", "--appendonly", "yes"]
+    volumes:
+      - redis-cloud-data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 30
+
+  rabbitmq:
+    image: rabbitmq:3.13-management
+    container_name: go-order-lab-rabbitmq-cloud
+    restart: unless-stopped
+    environment:
+      RABBITMQ_DEFAULT_USER: "${RABBITMQ_DEFAULT_USER:-order_user}"
+      RABBITMQ_DEFAULT_PASS: "${RABBITMQ_DEFAULT_PASS:-order_pass}"
+    volumes:
+      - rabbitmq-cloud-data:/var/lib/rabbitmq
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 30
+
+volumes:
+  mysql-cloud-data:
+  redis-cloud-data:
+  rabbitmq-cloud-data:
