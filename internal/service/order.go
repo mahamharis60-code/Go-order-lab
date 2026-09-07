@@ -6,6 +6,7 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
+	"reflect"
 	"strings"
 	"sync"
 	"time"
@@ -125,12 +126,28 @@ type CompensationWorkerConfig struct {
 }
 
 func NewOrderService(db *gorm.DB, redisStock stockCache, rabbit *RabbitQueue) *OrderService {
+	if isNilStockCache(redisStock) {
+		redisStock = nil
+	}
 	return &OrderService{
 		db:               db,
 		tasks:            make(chan OrderTask, 128),
 		redisStock:       redisStock,
 		rabbit:           rabbit,
 		rabbitMaxRetries: 3,
+	}
+}
+
+func isNilStockCache(cache stockCache) bool {
+	if cache == nil {
+		return true
+	}
+	value := reflect.ValueOf(cache)
+	switch value.Kind() {
+	case reflect.Chan, reflect.Func, reflect.Interface, reflect.Map, reflect.Ptr, reflect.Slice:
+		return value.IsNil()
+	default:
+		return false
 	}
 }
 

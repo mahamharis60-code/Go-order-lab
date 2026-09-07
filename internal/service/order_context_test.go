@@ -21,6 +21,24 @@ func TestCreateOrderContextRejectsCancelledRequest(t *testing.T) {
 	}
 }
 
+func TestCreateOrderUsesDatabasePathWhenRedisPointerIsNil(t *testing.T) {
+	db := newServiceTestDB(t)
+	activity := seedActivity(t, db, 5)
+	var redisStock *RedisStockStore
+	orders := NewOrderService(db, redisStock, nil)
+
+	order, stockLeft, err := orders.CreateOrder(1001, CreateOrderInput{ActivityID: activity.ID, RequestID: "typed-nil-redis"})
+	if err != nil {
+		t.Fatalf("CreateOrder error = %v, want nil", err)
+	}
+	if order.Status != "QUEUED" {
+		t.Fatalf("order status = %q, want QUEUED", order.Status)
+	}
+	if stockLeft != 4 {
+		t.Fatalf("stock left = %d, want 4", stockLeft)
+	}
+}
+
 func TestWorkersStopAfterContextCancellation(t *testing.T) {
 	db := newServiceTestDB(t)
 	orders := NewOrderService(db, nil, nil)
