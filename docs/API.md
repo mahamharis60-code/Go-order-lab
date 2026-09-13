@@ -8,10 +8,10 @@
 http://127.0.0.1:8090
 ```
 
-VM 混合部署示例：
+Docker Compose 对外访问地址：
 
 ```text
-http://192.168.220.138:8090
+http://<server-ip>:8090
 ```
 
 统一响应格式：
@@ -374,7 +374,7 @@ Authorization: Bearer <token>
 
 ## Admin
 
-后台接口复用 JWT 鉴权，当前没有单独的管理员角色字段。个人项目阶段先用于运营排障和接口展示，后续可以扩展为 RBAC。
+后台接口使用 JWT 鉴权和 RBAC 角色校验，仅 `ADMIN` 角色可以访问运营概览、订单查询、补偿与库存对账等管理能力。
 
 | Method | Path | Auth | Body | Success |
 | --- | --- | --- | --- | --- |
@@ -464,29 +464,11 @@ curl "http://127.0.0.1:8090/api/admin/orders?status=WAIT_PAY&activity_id=1&limit
 
 压测规模可通过环境变量调整：
 
-```bat
-set ORDER_PRESSURE_SAME_USER_CONCURRENCY=100
-set ORDER_PRESSURE_SAME_USER_STOCK=20
-set ORDER_PRESSURE_MULTI_USERS=200
-set ORDER_PRESSURE_MULTI_STOCK=30
-set ORDER_PRESSURE_REGISTER_CONCURRENCY=20
-scripts\pressure.cmd
+```bash
+ORDER_PRESSURE_SAME_USER_CONCURRENCY=100 \
+ORDER_PRESSURE_SAME_USER_STOCK=20 \
+ORDER_PRESSURE_MULTI_USERS=200 \
+ORDER_PRESSURE_MULTI_STOCK=30 \
+ORDER_PRESSURE_REGISTER_CONCURRENCY=20 \
+node scripts/pressure-order.js
 ```
-
-`scripts/rate-limit-test.js` 覆盖入口限流：
-
-1. 需要服务启动时开启 `ORDER_RATE_LIMIT_ENABLED=true`。
-2. 短时间并发请求 `POST /api/orders`。
-3. 期望至少出现一个 `429`。
-
-`scripts/stock-reconcile-test.js` 覆盖库存预热和对账：
-
-1. 创建商品和活动。
-2. 调用 `/api/ops/stock/reconcile` 检查新活动。
-3. 期望 `checked=1`、`missing=0`、`mismatched=0`。
-
-`scripts/metrics-test.js` 覆盖可观测性指标：
-
-1. 调用 `/health` 产生基础 HTTP 指标。
-2. 注册用户、创建商品和活动、发起活动下单。
-3. 调用 `/metrics`，检查 HTTP 请求指标和 `activity_order=accepted` 业务指标。

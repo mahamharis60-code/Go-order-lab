@@ -24,6 +24,12 @@ jobs:
       - name: Test
         run: go test ./... -count=1 -timeout=2m
 
+      - name: Validate Docker Compose
+        run: docker compose config --quiet
+
+      - name: Build Docker image
+        run: docker build -t go-order-lab:ci .
+
   integration-smoke:
     runs-on: ubuntu-latest
     services:

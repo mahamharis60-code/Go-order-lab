@@ -1,6 +1,6 @@
 # Architecture
 
-本文档按“面试能讲清楚、学习能顺着读代码”的方式整理项目结构。项目当前是一个单体 Go 后端服务，不是微服务；中间件版已经接入 MySQL、Redis 和 RabbitMQ。
+本文档说明项目的模块边界、核心业务链路和关键工程设计。系统采用模块化单体架构，并接入 MySQL、Redis 和 RabbitMQ。
 
 ## Module Map
 
@@ -66,7 +66,7 @@ HTTP request
 6. 令牌桶按 `ORDER_RATE_LIMIT_RPS` 补充令牌，最多保留 `ORDER_RATE_LIMIT_BURST` 个令牌。
 7. 没有令牌时直接返回 `429 Too Many Requests`，避免突发流量继续进入库存和数据库链路。
 
-说明：当前限流器是单进程内存实现，适合个人项目和单实例部署演示；多实例部署时应升级为 Redis、网关或服务治理层限流。
+说明：入口使用单进程令牌桶限流器，适用于单实例部署；多实例架构可将限流职责上移到 Redis、API 网关或服务治理层。
 
 ## Timeout and Shutdown Flow
 
@@ -93,7 +93,7 @@ HTTP request
 7. HTTP 入口关闭后，取消 worker context，channel/RabbitMQ worker 和补偿任务收到信号后退出。
 8. 后台任务退出或达到停机超时后，关闭数据库连接并打印停机日志。
 
-说明：这个设计重点解决“慢请求不要无限占用资源”和“容器重启时不要直接硬杀进程”。当前项目还没有做完整 outbox 表，因此极端断电场景仍依赖补偿任务兜底。
+说明：这个设计避免慢请求无限占用资源，并在容器重启时为 HTTP 请求和后台任务保留退出窗口；异常中断后的状态恢复由补偿任务兜底。
 
 ## Observability Metrics Flow
 
@@ -120,7 +120,7 @@ HTTP request
 5. 限流拦截时记录 `go_order_business_events_total{event="rate_limit",result="blocked"}`。
 6. `GET /metrics` 将内存计数器渲染为 Prometheus text exposition format，便于 Prometheus Server 抓取。
 
-说明：指标标签使用路由模板而不是原始 URL，避免把 `/api/orders/:order_no` 这种动态值展开成大量标签。当前项目先暴露 metrics endpoint，后续再接 Prometheus Server 和 Grafana 面板。
+说明：指标标签使用路由模板而不是原始 URL，避免把 `/api/orders/:order_no` 这类动态值展开成大量标签；`/metrics` 使用 Prometheus exposition format，可直接接入 Prometheus 抓取。
 
 ## Login and JWT Flow
 
@@ -138,7 +138,7 @@ HTTP request
 
 存储触达：
 
-- MySQL/SQLite 的 `users` 表。
+- MySQL 的 `users` 表。
 
 流程：
 
@@ -183,8 +183,8 @@ HTTP request
 1. 创建活动时写入活动价格、库存、状态、开始时间和结束时间，默认状态为 `PUBLISHED`。
 2. 如果 Redis 已开启，活动创建成功后主动预热 `order:activity:<id>:stock`。
 3. 下单时先校验活动存在、状态为 `PUBLISHED` 且处于有效时间。
-4. 本地学习模式用数据库事务检查库存和用户是否已买，再扣减库存并创建 `QUEUED` 订单。
-5. 中间件模式先用 Redis Lua 原子预扣库存和记录用户购买标记。
+4. Redis 未启用时，数据库事务负责检查库存和用户是否已购买，再扣减库存并创建 `QUEUED` 订单。
+5. Redis 启用时，先用 Lua 脚本原子预扣库存并记录用户购买标记。
 6. Redis 预扣成功后，再用数据库事务创建订单，并对数据库库存做兜底扣减。
 7. 活动订单会写入 `activity_order_key=<user_id>:<activity_id>`，数据库唯一索引作为一人一单的最终兜底。
 8. 订单创建成功后投递异步任务：RabbitMQ 可用时发布消息，不可用时回退到 Go channel。
@@ -313,7 +313,7 @@ ENDED     -> PUBLISHED
 - `mismatched`：Redis 与 MySQL 库存不一致数。
 - `repaired`：已修复数。
 
-说明：MySQL 是事实源，Redis 是高并发入口缓存。当前对账是手动接口，后续可以升级为定时任务和告警。
+说明：MySQL 是事实源，Redis 是高并发入口缓存；管理员可通过受 RBAC 保护的对账接口检查并修复缓存库存。
 
 ## RabbitMQ Async Order Flow
 
@@ -488,39 +488,17 @@ ENDED     -> PUBLISHED
 3. `AdminHandler` 解析 query 参数，保持 HTTP 层只做参数处理和统一响应。
 4. `AdminService.Overview` 聚合用户数、商品数、活动数、订单状态分布、已支付 GMV、库存汇总和失败日志数量。
 5. `AdminService.ListOrders` 按状态、用户 ID、活动 ID 组合过滤订单，默认限制 20 条，最大 100 条。
-6. 该能力用于运营排障和面试展示，例如快速查看活动是否大量卡在 `WAIT_PAY`、是否出现失败日志、库存汇总是否异常。
+6. 该能力用于运营排障，例如快速查看活动是否大量卡在 `WAIT_PAY`、是否出现失败日志、库存汇总是否异常。
 
-说明：当前后台能力是轻量运维视图，不是完整管理后台，但已经具备基础 RBAC 权限边界。
+## Docker Deployment
 
-## Current Deployment Modes
+`docker-compose.yml` 统一编排 Go app、MySQL、Redis 和 RabbitMQ：
 
-当前支持四种运行方式：
+1. app 通过多阶段 Dockerfile 编译为 Linux 二进制，并监听容器内 `8090`。
+2. MySQL、Redis 和 RabbitMQ 使用健康检查，app 在依赖健康后启动。
+3. MySQL、Redis 和 RabbitMQ 数据分别写入命名 volume。
+4. 中间件端口只绑定宿主机回环地址，HTTP API 通过 `ORDER_APP_PORT` 对外提供服务。
+5. 配置由 Compose 和 `.env` 注入，密码、端口、worker 数、补偿任务和限流参数均可覆盖。
+6. 容器收到停止信号后，HTTP 服务执行优雅关闭并通知 worker 退出。
 
-1. 本地学习模式：SQLite + Go channel worker，不依赖 Redis/RabbitMQ，适合理解代码和 smoke test。
-2. VM mixed Compose：推荐路线，`docker-compose.mixed.yml` 只编排 Go app 容器，监听 `18090`，连接宿主机 MySQL/Redis/RabbitMQ，已验证成功。
-3. VM 手动 Docker：备用路线，MySQL/Redis/RabbitMQ 使用 Ubuntu apt 服务，Go 服务通过 `docker run` 运行并监听 `8090`，已验证成功。
-4. Docker Compose 全容器模式：`docker-compose.yml` 编排 app、MySQL、Redis、RabbitMQ，端口支持通过环境变量覆盖；本轮 VM 验证卡在 `mysql:8.4` 镜像拉取，配置已通过 `docker compose config` 检查。
-
-已验证的中间件能力：
-
-- MySQL 存储业务表。
-- Redis Lua 做活动库存预扣和重复购买拦截。
-- MySQL 唯一索引对订单号、支付流水和活动订单做最终一致性兜底。
-- RabbitMQ 承接订单异步任务。
-- Docker 容器运行 Go 服务。
-- 下单接口可通过令牌桶限流保护，访问日志可通过 trace id 定位请求，`/metrics` 可查看请求量、耗时和业务事件。
-- 请求入口支持统一超时，服务支持 Docker/系统信号触发的优雅停机。
-
-## Known Gaps
-
-当前阶段是“可运行、可学习、可面试讲清”的单体后端项目，还不是生产级系统。
-
-已知待完善点：
-
-- RabbitMQ 已有最大重试、死信队列投递和补偿任务，但还没有延迟重试和监控面板。
-- 请求超时和优雅停机已接入，后续可补 outbox 表和更细粒度的后台任务 drain 策略。
-- Redis 库存已在活动创建时预热，后续可把库存对账升级为定时任务和告警。
-- 已暴露 Prometheus 文本指标，但尚未接入 Prometheus Server、Grafana 面板和分布式链路追踪。
-- 核心补偿、数据库约束、库存对账、RBAC 和后台接口已有 service/handler/HTTP 集成测试，其他模块单元测试和集成测试还需要补。
-- 还没有 Kubernetes manifest，也没有拆成商品、订单、支付等微服务。
-- 没有真实支付渠道，只实现了支付回调模拟接口。
+部署后的核心验证包括 MySQL 业务落库、Redis Lua 库存预占、RabbitMQ 异步消费、订单状态推进、支付幂等、库存对账、RBAC、Trace ID 和 `/metrics` 指标。
