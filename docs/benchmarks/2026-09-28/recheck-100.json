@@ -1,0 +1,146 @@
+{
+  "base_url": "http://127.0.0.1:8090",
+  "client_arch": "amd64",
+  "client_go_version": "go1.26.4",
+  "client_logical_cpus": 2,
+  "client_os": "linux",
+  "load_model": "closed-loop fixed worker goroutines; no think time; setup and warmup excluded",
+  "passed": true,
+  "percentile_method": "nearest rank; full response-body latency",
+  "recorded_at": "2026-09-28T03:42:33.384175507Z",
+  "reports": [
+    {
+      "name": "same_user_duplicate",
+      "request_workers": 100,
+      "requests": 100,
+      "elapsed_seconds": 0.146855936,
+      "completed_requests_per_second": 680.939448031573,
+      "accepted_orders_per_second": 6.80939448031573,
+      "mean_ms": 106.71564464,
+      "p50_ms": 109.564055,
+      "p95_ms": 135.350558,
+      "p99_ms": 141.169243,
+      "max_ms": 144.47841,
+      "system_errors": 0,
+      "system_error_rate": 0,
+      "http_status_counts": {
+        "202": 1,
+        "409": 99
+      },
+      "response_message_counts": {
+        "accepted": 1,
+        "user already has an order for this activity": 99
+      },
+      "activity_id": 78,
+      "verification": {
+        "accepted_requests": 1,
+        "all_orders_wait_pay": true,
+        "async_verification_seconds": 0.005250168,
+        "duplicate_user_order": false,
+        "initial_stock": 5,
+        "mysql_stock": 4,
+        "passed": true,
+        "persisted_orders": 1,
+        "redis_evidence": "read-only reconcile counters",
+        "redis_matches_mysql": true
+      }
+    },
+    {
+      "name": "multi_user_stock",
+      "request_workers": 100,
+      "requests": 200,
+      "elapsed_seconds": 0.408546636,
+      "completed_requests_per_second": 489.54019535728105,
+      "accepted_orders_per_second": 73.43102930359215,
+      "mean_ms": 137.391633835,
+      "p50_ms": 111.041274,
+      "p95_ms": 321.192911,
+      "p99_ms": 391.754231,
+      "max_ms": 408.459498,
+      "system_errors": 0,
+      "system_error_rate": 0,
+      "http_status_counts": {
+        "202": 30,
+        "409": 170
+      },
+      "response_message_counts": {
+        "accepted": 30,
+        "activity sold out": 170
+      },
+      "activity_id": 79,
+      "verification": {
+        "accepted_requests": 30,
+        "all_orders_wait_pay": true,
+        "async_verification_seconds": 1.230328283,
+        "duplicate_user_order": false,
+        "initial_stock": 30,
+        "mysql_stock": 0,
+        "passed": true,
+        "persisted_orders": 30,
+        "redis_evidence": "read-only reconcile counters",
+        "redis_matches_mysql": true
+      }
+    },
+    {
+      "name": "valid_order_writes",
+      "request_workers": 100,
+      "requests": 1000,
+      "elapsed_seconds": 6.380883255,
+      "completed_requests_per_second": 156.71811566469415,
+      "accepted_orders_per_second": 156.71811566469415,
+      "mean_ms": 612.3734712550013,
+      "p50_ms": 586.646965,
+      "p95_ms": 1067.581393,
+      "p99_ms": 1361.785275,
+      "max_ms": 1637.302097,
+      "system_errors": 0,
+      "system_error_rate": 0,
+      "http_status_counts": {
+        "202": 1000
+      },
+      "response_message_counts": {
+        "accepted": 1000
+      },
+      "verification": {
+        "activity_ids": [
+          80,
+          81,
+          82,
+          83,
+          84,
+          85,
+          86,
+          87,
+          88,
+          89
+        ],
+        "async_verification_seconds": 42.497356458,
+        "expected_orders": 1000,
+        "passed": true
+      }
+    },
+    {
+      "name": "sustained_order_query",
+      "request_workers": 100,
+      "requests": 19820,
+      "elapsed_seconds": 10.045122204,
+      "completed_requests_per_second": 1973.0969516834361,
+      "accepted_orders_per_second": 0,
+      "mean_ms": 50.55760038552005,
+      "p50_ms": 43.595476,
+      "p95_ms": 127.601541,
+      "p99_ms": 193.020063,
+      "max_ms": 409.836437,
+      "system_errors": 0,
+      "system_error_rate": 0,
+      "http_status_counts": {
+        "200": 19820
+      },
+      "response_message_counts": {
+        "ok": 19820
+      }
+    }
+  ],
+  "started_at": "1790566891197396520",
+  "verification_errors": null
+}

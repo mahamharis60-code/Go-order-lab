@@ -1,5 +1,9 @@
 # Go Order Lab
 
+Go 并发测试与性能报告：见 [压测说明](docs/PRESSURE.md)。运行 `go run ./cmd/pressure`，使用固定请求 worker，统计 QPS、P50/P95/P99、错误分类，并核对订单与 Redis/MySQL 库存。云端可使用 `bash scripts/pressure-cloud.sh` 采集机器配置、容器资源和消息积压。
+
+实测环境、结果和限制见 [2026-09-28 云端压测报告](docs/benchmarks/2026-09-28/REPORT.md)，包含原始 JSON 数据。
+
 [![CI](https://github.com/mahamharis60-code/Go-order-lab/actions/workflows/ci.yml/badge.svg)](https://github.com/mahamharis60-code/Go-order-lab/actions/workflows/ci.yml)
 [![Go](https://img.shields.io/badge/Go-1.26-00ADD8?logo=go&logoColor=white)](https://go.dev/)
 [![Docker Compose](https://img.shields.io/badge/Docker-Compose-2496ED?logo=docker&logoColor=white)](https://docs.docker.com/compose/)
@@ -154,13 +158,11 @@ go test ./... -count=1
 node scripts/smoke-test.js
 ```
 
-并发正确性验证：
+Go 并发正确性与性能验证（先设置 `ORDER_ADMIN_PASSWORD`）：
 
 ```bash
-ORDER_PRESSURE_SAME_USER_CONCURRENCY=100 \
-ORDER_PRESSURE_MULTI_USERS=200 \
-ORDER_PRESSURE_MULTI_STOCK=30 \
-node scripts/pressure-order.js
+go run ./cmd/pressure -concurrency 20 -duplicate-requests 100 \
+  -users 200 -stock 30 -write-requests 1000 -duration 30s
 ```
 
 验证内容包括普通用户与管理员权限隔离、活动下单、异步状态推进、重复下单拦截、支付回调幂等、库存边界和补偿流程。仓库的 GitHub Actions 会在 push 与 pull request 时执行格式检查、Go 测试和真实 MySQL/Redis/RabbitMQ smoke test。
@@ -170,4 +172,4 @@ node scripts/pressure-order.js
 - 同一用户发起 100 个并发活动下单请求，成功创建 1 个订单，其余请求被重复购买校验拦截。
 - 200 个用户并发争抢 30 份活动库存，成功创建 30 个订单，MySQL 与 Redis 库存均未出现负数。
 
-这些结果用于验证并发场景下的业务正确性；测试脚本和参数均保留在仓库中，便于复现。
+这些结果用于验证并发场景下的业务正确性；Go 压测工具还输出 QPS、延迟分位数、错误分类和最终数据核验。旧 JavaScript 压测脚本保留用于兼容。指标定义与云端资源采集见 [压测说明](docs/PRESSURE.md)。

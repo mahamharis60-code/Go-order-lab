@@ -133,6 +133,12 @@ jobs:
           ORDER_ADMIN_PASSWORD: admin123456
         run: node scripts/smoke-test.js
 
+      - name: Run Go concurrency correctness test
+        env:
+          ORDER_ADMIN_USERNAME: admin
+          ORDER_ADMIN_PASSWORD: admin123456
+        run: go run ./cmd/pressure -concurrency 10 -users 40 -stock 10 -duplicate-requests 30 -write-requests 40 -duration 2s -out "${{ runner.temp }}/order-pressure/result.json"
+
       - name: Stop app
         if: always()
         run: |
@@ -148,3 +154,4 @@ jobs:
           path: |
             ${{ runner.temp }}/go-order-lab.log
             ${{ runner.temp }}/order-smoke
+            ${{ runner.temp }}/order-pressure

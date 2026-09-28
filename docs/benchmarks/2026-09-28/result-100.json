@@ -1,0 +1,143 @@
+{
+  "base_url": "http://127.0.0.1:8090",
+  "client_arch": "amd64",
+  "client_go_version": "go1.26.4",
+  "client_logical_cpus": 2,
+  "client_os": "linux",
+  "load_model": "closed-loop fixed worker goroutines; no think time; setup and warmup excluded",
+  "passed": true,
+  "percentile_method": "nearest rank; full response-body latency",
+  "recorded_at": "2026-09-28T03:31:17.739155377Z",
+  "reports": [
+    {
+      "name": "same_user_duplicate",
+      "request_workers": 100,
+      "requests": 100,
+      "elapsed_seconds": 0.120048512,
+      "completed_requests_per_second": 832.9965805823566,
+      "accepted_orders_per_second": 8.329965805823566,
+      "mean_ms": 77.04299404000002,
+      "p50_ms": 76.730521,
+      "p95_ms": 110.157854,
+      "p99_ms": 113.004247,
+      "max_ms": 113.158439,
+      "system_errors": 0,
+      "system_error_rate": 0,
+      "http_status_counts": {
+        "202": 1,
+        "409": 99
+      },
+      "response_message_counts": {
+        "accepted": 1,
+        "user already has an order for this activity": 99
+      },
+      "activity_id": 66,
+      "verification": {
+        "accepted_requests": 1,
+        "all_orders_wait_pay": true,
+        "duplicate_user_order": false,
+        "initial_stock": 5,
+        "mysql_stock": 4,
+        "passed": true,
+        "persisted_orders": 1,
+        "redis_evidence": "read-only reconcile counters",
+        "redis_matches_mysql": true
+      }
+    },
+    {
+      "name": "multi_user_stock",
+      "request_workers": 100,
+      "requests": 200,
+      "elapsed_seconds": 0.383858585,
+      "completed_requests_per_second": 521.0252103649057,
+      "accepted_orders_per_second": 78.15378155473584,
+      "mean_ms": 136.99496929,
+      "p50_ms": 115.497421,
+      "p95_ms": 312.031095,
+      "p99_ms": 368.499424,
+      "max_ms": 379.156081,
+      "system_errors": 0,
+      "system_error_rate": 0,
+      "http_status_counts": {
+        "202": 30,
+        "409": 170
+      },
+      "response_message_counts": {
+        "accepted": 30,
+        "activity sold out": 170
+      },
+      "activity_id": 67,
+      "verification": {
+        "accepted_requests": 30,
+        "all_orders_wait_pay": true,
+        "duplicate_user_order": false,
+        "initial_stock": 30,
+        "mysql_stock": 0,
+        "passed": true,
+        "persisted_orders": 30,
+        "redis_evidence": "read-only reconcile counters",
+        "redis_matches_mysql": true
+      }
+    },
+    {
+      "name": "valid_order_writes",
+      "request_workers": 100,
+      "requests": 1000,
+      "elapsed_seconds": 6.751162877,
+      "completed_requests_per_second": 148.12262986674793,
+      "accepted_orders_per_second": 148.12262986674793,
+      "mean_ms": 644.4037373019996,
+      "p50_ms": 612.760729,
+      "p95_ms": 1095.831893,
+      "p99_ms": 1336.267113,
+      "max_ms": 1577.838332,
+      "system_errors": 0,
+      "system_error_rate": 0,
+      "http_status_counts": {
+        "202": 1000
+      },
+      "response_message_counts": {
+        "accepted": 1000
+      },
+      "verification": {
+        "activity_ids": [
+          68,
+          69,
+          70,
+          71,
+          72,
+          73,
+          74,
+          75,
+          76,
+          77
+        ],
+        "expected_orders": 1000,
+        "passed": true
+      }
+    },
+    {
+      "name": "sustained_order_query",
+      "request_workers": 100,
+      "requests": 62084,
+      "elapsed_seconds": 30.032974846,
+      "completed_requests_per_second": 2067.1944860057306,
+      "accepted_orders_per_second": 0,
+      "mean_ms": 48.328278329424975,
+      "p50_ms": 40.775905,
+      "p95_ms": 117.530644,
+      "p99_ms": 181.057068,
+      "max_ms": 496.467183,
+      "system_errors": 0,
+      "system_error_rate": 0,
+      "http_status_counts": {
+        "200": 62084
+      },
+      "response_message_counts": {
+        "ok": 62084
+      }
+    }
+  ],
+  "started_at": "1790566195434868662",
+  "verification_errors": null
+}
